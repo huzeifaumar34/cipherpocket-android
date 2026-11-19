@@ -508,7 +508,7 @@ private fun VaultPage(
                 visualTransformation = PasswordVisualTransformation()
             )
             Text(
-                text = t("Password strength: ", "Força da palavra-passe: ") + passwordStrengthLabel(password, pt = false, portuguese = true, pt = t("Strong", "Forte")),
+                text = t("Password strength: ", "Força da palavra-passe: ") + passwordStrengthLabel(password, pt),
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodySmall
             )
@@ -544,14 +544,14 @@ private fun VaultPage(
     }
 }
 
-private fun passwordStrengthLabel(password: String, pt: Boolean, portuguese: Boolean, pt: String): String {
+private fun passwordStrengthLabel(password: String, pt: Boolean): String {
     val score = (if (password.length >= 12) 2 else if (password.length >= 8) 1 else 0) +
         (if (password.any { it.isLowerCase() }) 1 else 0) +
         (if (password.any { it.isUpperCase() }) 1 else 0) +
         (if (password.any { it.isDigit() }) 1 else 0) +
         (if (password.any { !it.isLetterOrDigit() }) 1 else 0)
     return when {
-        password.isEmpty() -> if (pt) "—" else "—"
+        password.isEmpty() -> "—"
         score <= 1 -> if (pt) "Muito fraca" else "Very weak"
         score == 2 -> if (pt) "Fraca" else "Weak"
         score == 3 -> if (pt) "Razoável" else "Fair"
