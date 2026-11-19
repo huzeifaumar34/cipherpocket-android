@@ -1,6 +1,7 @@
 package io.github.huzeifaumar34.cipherpocket
 
 import android.os.Bundle
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -18,6 +19,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val preferences = getSharedPreferences("cipherpocket-settings", MODE_PRIVATE)
+        val sharedText = if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+            intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        } else null
         setContent {
             var theme by remember {
                 mutableStateOf(preferences.getString("theme", "system") ?: "system")
@@ -36,6 +40,7 @@ class MainActivity : ComponentActivity() {
 
             CipherPocketTheme(darkTheme = darkTheme) {
                 CipherPocketApp(
+                    initialSharedText = sharedText,
                     language = language,
                     theme = theme,
                     clipboardSeconds = clipboardSeconds,
