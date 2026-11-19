@@ -36,15 +36,18 @@ private val CipherLight = lightColorScheme(
 )
 
 @Composable
-fun CipherPocketTheme(content: @Composable () -> Unit) {
+fun CipherPocketTheme(
+    darkTheme: Boolean? = null,
+    content: @Composable () -> Unit
+) {
     val context = LocalContext.current
-    val isDark = isSystemInDarkTheme()
+    val useDark = darkTheme ?: isSystemInDarkTheme()
     val colors = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && isDark ->
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && useDark ->
             dynamicDarkColorScheme(context)
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
             dynamicLightColorScheme(context)
-        isDark -> CipherDark
+        useDark -> CipherDark
         else -> CipherLight
     }
     MaterialTheme(colorScheme = colors, content = content)
