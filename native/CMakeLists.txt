@@ -17,7 +17,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
+find_package(OpenSSL 3.0 REQUIRED COMPONENTS Crypto)
+
 add_subdirectory(../core/src/main/cpp/engine engine)
+target_link_libraries(cp_engine PUBLIC OpenSSL::Crypto)
 
 add_executable(cipherpocket-cli src/main.cpp)
 target_link_libraries(cipherpocket-cli PRIVATE cp_engine)
