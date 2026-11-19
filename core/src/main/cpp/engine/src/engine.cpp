@@ -285,11 +285,39 @@ bool base_convert(std::string_view number, std::string_view spec, std::string& o
     return true;
 }
 
+void append_utf8(std::string& out, std::uint32_t cp) {
+    if (cp <= 0x7FU) out.push_back(static_cast<char>(cp));
+    else if (cp <= 0x7FFU) {
+        out.push_back(static_cast<char>(0xC0U | (cp >> 6U)));
+        out.push_back(static_cast<char>(0x80U | (cp & 63U)));
+    } else {
+        out.push_back(static_cast<char>(0xE0U | (cp >> 12U)));
+        out.push_back(static_cast<char>(0x80U | ((cp >> 6U) & 63U)));
+        out.push_back(static_cast<char>(0x80U | (cp & 63U)));
+    }
+}
 std::string case_change(std::string_view in, bool upper) {
-    std::string out(in);
-    for (char& c : out) {
-        if (upper && c >= 'a' && c <= 'z') c = static_cast<char>(c - 32);
-        if (!upper && c >= 'A' && c <= 'Z') c = static_cast<char>(c + 32);
+    std::string out;
+    for (std::size_t i = 0; i < in.size();) {
+        const auto first = static_cast<unsigned char>(in[i]);
+        std::uint32_t cp = first;
+        std::size_t width = 1U;
+        if ((first & 0xE0U) == 0xC0U && i + 1U < in.size()) {
+            cp = ((first & 31U) << 6U) | (static_cast<unsigned char>(in[i + 1U]) & 63U);
+            width = 2U;
+        } else if ((first & 0xF0U) == 0xE0U && i + 2U < in.size()) {
+            cp = ((first & 15U) << 12U) | ((static_cast<unsigned char>(in[i + 1U]) & 63U) << 6U) |
+                 (static_cast<unsigned char>(in[i + 2U]) & 63U);
+            width = 3U;
+        }
+        if (upper && cp >= 'a' && cp <= 'z') cp -= 32U;
+        else if (!upper && cp >= 'A' && cp <= 'Z') cp += 32U;
+        else if (upper && ((cp >= 0x00E0U && cp <= 0x00F6U) || (cp >= 0x00F8U && cp <= 0x00FEU))) cp -= 32U;
+        else if (!upper && ((cp >= 0x00C0U && cp <= 0x00D6U) || (cp >= 0x00D8U && cp <= 0x00DEU))) cp += 32U;
+        else if (upper && cp == 0x00FFU) cp = 0x0178U;
+        else if (!upper && cp == 0x0178U) cp = 0x00FFU;
+        append_utf8(out, cp);
+        i += width;
     }
     return out;
 }
@@ -419,8 +447,9 @@ std::string detect(std::string_view in) {
 
 Result execute(Operation op,const Bytes& input,const Bytes& argument1,const Bytes& argument2) {
     (void)argument2;
-    const std::string source=text(input), arg=text(argument1);
-    StringWiper wipe_arg{const_cast<std::string&>(arg)};
+    std::string source=text(input), arg=text(argument1);
+    StringWiper wipe_source{source};
+    StringWiper wipe_arg{arg};
     switch(op) {
         case Operation::BinEnc: return ok(binary_encode(input));
         case Operation::BinDec: { Bytes out; std::string e; return binary_decode(source,out,e)?ok(std::move(out)):error(e); }
