@@ -91,8 +91,9 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             var resultBytes: ByteArray? = null
             try {
-                resultBytes = engine.execute(operation, inputBytes, argumentBytes)
-                val resultText = String(resultBytes, StandardCharsets.UTF_8)
+                val completed = engine.execute(operation, inputBytes, argumentBytes)
+                resultBytes = completed
+                val resultText = String(completed, StandardCharsets.UTF_8)
                 mutableUiState.update { current ->
                     val entry = HistoryRecord(
                         operation = operation.name,
