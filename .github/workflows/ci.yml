@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  native:
+    name: Native engine (C++17)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Configure native build
+        run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Compile native engine and CLI
+        run: cmake --build native/build --parallel 2
+
+      - name: Run GoogleTest suite
+        run: ctest --test-dir native/build --output-on-failure
+
+  android:
+    name: Android lint, unit tests and debug APK
+    runs-on: ubuntu-latest
+    needs: native
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Prepare Android toolchain
+        uses: ./.github/actions/prepare-android
+
+      - name: Validate Gradle wrapper
+        run: ./gradlew --version
+
+      - name: Run lint and Kotlin unit tests
+        run: ./gradlew --no-daemon --stacktrace lint testDebugUnitTest
+
+      - name: Build debug APK
+        run: ./gradlew --no-daemon --stacktrace assembleDebug
+
+      - name: Enforce offline-only manifest
+        shell: bash
+        run: |
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          AAPT="$ANDROID_HOME/build-tools/36.0.0/aapt"
+          "$AAPT" dump permissions "$APK" > /tmp/cipherpocket-permissions.txt
+          if grep -q "android.permission.INTERNET" /tmp/cipherpocket-permissions.txt; then
+            echo "The APK declares INTERNET; CipherPocket must remain fully offline." >&2
+            cat /tmp/cipherpocket-permissions.txt
+            exit 1
+          fi
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CipherPocket-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14

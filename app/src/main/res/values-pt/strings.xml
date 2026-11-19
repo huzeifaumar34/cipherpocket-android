@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CipherPocket</string>
+    <string name="brand_tagline">PRIVADO POR DEFINIÇÃO</string>
+    <string name="offline_status">OFFLINE</string>
+    <string name="hero_title">A tua caixa de ferramentas de privacidade.</string>
+    <string name="hero_body">Ferramentas de texto úteis. Sem contas, rastreamento ou ligação à rede.</string>
+    <string name="base64_title">Conversor Base64</string>
+    <string name="base64_description">Codifica texto simples ou descodifica uma mensagem Base64.</string>
+    <string name="input_label">Entrada</string>
+    <string name="input_placeholder">Escreve ou cola o texto aqui…</string>
+    <string name="encode">Codificar</string>
+    <string name="decode">Descodificar</string>
+    <string name="output_label">Resultado</string>
+    <string name="output_placeholder">O resultado vai aparecer aqui.</string>
+    <string name="copy">Copiar</string>
+    <string name="working">A processar…</string>
+    <string name="educational_note">Base64 é codificação, não encriptação. Não protege segredos.</string>
+    <string name="footer_note">O teu texto permanece neste dispositivo.</string>
+</resources>

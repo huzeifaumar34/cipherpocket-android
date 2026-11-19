@@ -1,0 +1,27 @@
+# Gradle / Android
+.gradle/
+**/build/
+local.properties
+.externalNativeBuild/
+.cxx/
+captures/
+*.apk
+*.aab
+.idea/
+*.iml
+
+# Signing material — never commit secrets
+*.jks
+*.keystore
+*.p12
+*.pfx
+
+# Generated native dependencies
+native/build/
+third_party/openssl/build/
+third_party/openssl/src/
+*.so
+*.a
+
+.DS_Store
+Thumbs.db

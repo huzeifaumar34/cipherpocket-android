@@ -1,0 +1,120 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish signed APK
+    runs-on: ubuntu-latest
+    environment: release
+    steps:
+      - name: Check out full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify release commit belongs to main
+        shell: bash
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor "$GITHUB_SHA" "origin/main" || {
+            echo "Release tags must point to a commit on main." >&2
+            exit 1
+          }
+
+      - name: Prepare Android toolchain
+        uses: ./.github/actions/prepare-android
+
+      - name: Validate release secrets and decode keystore
+        id: signing
+        shell: bash
+        env:
+          CP_KEYSTORE_B64: ${{ secrets.CP_KEYSTORE_B64 }}
+          CP_KEYSTORE_PASSWORD: ${{ secrets.CP_KEYSTORE_PASSWORD }}
+          CP_KEY_ALIAS: ${{ secrets.CP_KEY_ALIAS }}
+          CP_KEY_PASSWORD: ${{ secrets.CP_KEY_PASSWORD }}
+          CP_CERT_SHA256: ${{ vars.CP_CERT_SHA256 }}
+        run: |
+          set -euo pipefail
+          for name in CP_KEYSTORE_B64 CP_KEYSTORE_PASSWORD CP_KEY_ALIAS CP_KEY_PASSWORD CP_CERT_SHA256; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "Missing required release value: $name" >&2
+              exit 1
+            fi
+          done
+
+          KEYSTORE_PATH="$RUNNER_TEMP/cipherpocket-release.p12"
+          printf '%s' "$CP_KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+          chmod 600 "$KEYSTORE_PATH"
+
+          CERT_SHA="$(
+            openssl pkcs12 -in "$KEYSTORE_PATH" -passin env:CP_KEYSTORE_PASSWORD -clcerts -nokeys |
+            openssl x509 -noout -fingerprint -sha256 |
+            sed 's/.*=//; s/://g' |
+            tr '[:upper:]' '[:lower:]'
+          )"
+          EXPECTED_SHA="$(printf '%s' "$CP_CERT_SHA256" | tr '[:upper:]' '[:lower:]' | tr -d ':')"
+          if [[ "$CERT_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "Release certificate fingerprint does not match CP_CERT_SHA256." >&2
+            exit 1
+          fi
+
+          echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "CP_CERT_SHA256_NORMALIZED=$EXPECTED_SHA" >> "$GITHUB_ENV"
+
+      - name: Calculate release version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          if [[ ! "$VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Expected tag format vX.Y.Z, got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          CODE=$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))
+          echo "CP_VERSION_NAME=$VERSION" >> "$GITHUB_ENV"
+          echo "CP_VERSION_CODE=$CODE" >> "$GITHUB_ENV"
+
+      - name: Build signed release APK
+        env:
+          CP_KEYSTORE_PASSWORD: ${{ secrets.CP_KEYSTORE_PASSWORD }}
+          CP_KEY_ALIAS: ${{ secrets.CP_KEY_ALIAS }}
+          CP_KEY_PASSWORD: ${{ secrets.CP_KEY_PASSWORD }}
+        run: ./gradlew --no-daemon --stacktrace :app:assembleRelease -PcpVersionName="$CP_VERSION_NAME" -PcpVersionCode="$CP_VERSION_CODE"
+
+      - name: Verify APK signature, certificate, alignment and offline manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          ACTUAL_SHA="$(grep 'Signer #1 certificate SHA-256 digest:' /tmp/apksigner.txt | awk '{print tolower($NF)}')"
+          test "$ACTUAL_SHA" = "$CP_CERT_SHA256_NORMALIZED"
+
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
+          "$BUILD_TOOLS/aapt" dump permissions "$APK" > /tmp/cipherpocket-permissions.txt
+          ! grep -q "android.permission.INTERNET" /tmp/cipherpocket-permissions.txt
+
+          cp "$APK" "CipherPocket-$CP_VERSION_NAME.apk"
+          sha256sum "CipherPocket-$CP_VERSION_NAME.apk" > "CipherPocket-$CP_VERSION_NAME.apk.sha256"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" "CipherPocket-$CP_VERSION_NAME.apk" "CipherPocket-$CP_VERSION_NAME.apk.sha256" --generate-notes
+
+      - name: Remove temporary signing material
+        if: always()
+        shell: bash
+        run: rm -f "${KEYSTORE_PATH:-$RUNNER_TEMP/cipherpocket-release.p12}"
