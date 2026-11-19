@@ -8,7 +8,8 @@ This file records first-build checks required by PROJECT.md. Do not silently cha
 - Kotlin 2.4.21 is pinned as specified. The Kotlin compatibility table lists full AGP support through 9.3.1, so the first CI run must confirm the AGP 9.5.0 built-in Kotlin integration and Compose compiler plugin work together. Resolve this documented compatibility point before changing versions.
 - Compose UI 1.13.0 was still at RC01 when this scaffold was started, so the catalog pins 1.13.0-rc01 rather than a not-yet-published stable artifact.
 - Material 3 1.5.0 is pinned as specified.
-- OpenSSL is pinned to 3.5.9 LTS with its published SHA-256. The build script verifies the tarball before compiling any ABI.
+- OpenSSL 3.5.9 LTS is the current 3.5 LTS release on 2026-11-19. Its SHA-256 is stored in third_party/openssl/SHA256 and checked before any ABI build.
+- The PROJECT.md checklist asks whether GitHub Action major versions newer than v4 exist. The workflows use the verified current majors: checkout v7, setup-java v6, cache v6, upload-artifact v7, gradle/actions v6 and setup-android v4. Dependabot checks these weekly.
 
 ## M0 validation boundary
 

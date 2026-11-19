@@ -15,7 +15,7 @@ jobs:
     environment: release
     steps:
       - name: Check out full history
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -66,6 +66,7 @@ jobs:
           fi
 
           echo "KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
+          echo "CP_KEYSTORE_PATH=$KEYSTORE_PATH" >> "$GITHUB_ENV"
           echo "CP_CERT_SHA256_NORMALIZED=$EXPECTED_SHA" >> "$GITHUB_ENV"
 
       - name: Calculate release version

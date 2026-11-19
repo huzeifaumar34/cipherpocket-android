@@ -2,17 +2,17 @@
 
 **A private toolkit for text and files — offline by design.**
 
-CipherPocket is the Android companion to the conversor v2 project. It brings encoding, decoding and authenticated encryption into a compact Android app without accounts, telemetry, ads, cloud sync or network access.
+CipherPocket is the Android companion to the conversor v2 project. The app is being built to bring encoding, decoding and authenticated encryption into a compact Android experience without accounts, telemetry, ads, cloud sync or network access.
 
 ## Project status
 
-- [x] M0 scaffold: Android modules, native engine, JNI contract, Base64 encode/decode and CI workflow.
+- [ ] M0 acceptance: CI green, debug APK built and Base64 verified on a device.
 - [ ] M1 full native engine and desktop CLI parity.
 - [ ] M2 complete text tools, Detect, History, Settings and English/Portuguese UI.
 - [ ] M3 AES-256-GCM Vault and SAF file operations.
 - [ ] M4 signed 1.0 release.
 
-The complete requirements and acceptance criteria are in PROJECT.md.
+The initial M0 scaffold is in place. It currently implements Base64 encode/decode only; the complete requirements and acceptance criteria are in PROJECT.md.
 
 ## Architecture
 

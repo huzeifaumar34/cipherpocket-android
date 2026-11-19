@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Configure native build
         run: cmake -S native -B native/build -DCMAKE_BUILD_TYPE=Release
@@ -36,7 +36,7 @@ jobs:
     needs: native
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Prepare Android toolchain
         uses: ./.github/actions/prepare-android
@@ -63,7 +63,7 @@ jobs:
           fi
 
       - name: Upload debug APK
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: CipherPocket-debug
           path: app/build/outputs/apk/debug/app-debug.apk
