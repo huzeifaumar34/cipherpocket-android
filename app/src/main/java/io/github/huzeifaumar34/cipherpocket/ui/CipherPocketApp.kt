@@ -45,6 +45,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -117,6 +118,7 @@ private fun categoryLabel(category: String, pt: Boolean): String = when (categor
 
 @Composable
 fun CipherPocketApp(
+    initialSharedText: String? = null,
     language: String,
     theme: String,
     clipboardSeconds: Int,
@@ -131,7 +133,13 @@ fun CipherPocketApp(
     val systemLanguage = configuration.locales[0].language
     val pt = language == "pt" || (language == "system" && systemLanguage == "pt")
     val t: (String, String) -> String = { english, portuguese -> if (pt) portuguese else english }
-    var page by rememberSaveable { mutableStateOf(AppPage.TOOLS) }
+    var page by rememberSaveable { mutableStateOf(if (initialSharedText.isNullOrBlank()) AppPage.TOOLS else AppPage.DETECT) }
+    LaunchedEffect(initialSharedText) {
+        if (!initialSharedText.isNullOrBlank()) {
+            viewModel.onInputChanged(initialSharedText)
+            page = AppPage.DETECT
+        }
+    }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     val clipboard = remember { context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager }
 
@@ -339,7 +347,10 @@ private fun ToolsPage(
             operationGroups.forEach { group ->
                 FilterChip(
                     selected = category == group.first,
-                    onClick = { category = group.first },
+                    onClick = {
+                        category = group.first
+                        onSelectOperation(group.second.first())
+                    },
                     label = { Text(categoryLabel(group.first, pt)) }
                 )
             }
@@ -512,6 +523,14 @@ private fun VaultPage(
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.bodySmall
             )
+            if (password.isNotEmpty() && password.length < 12) {
+                Text(
+                    t("Use 12 or more characters for a stronger passphrase. You may still continue.",
+                      "Usa 12 ou mais caracteres para uma frase-passe mais forte. Podes continuar mesmo assim."),
+                    color = MaterialTheme.colorScheme.tertiary,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
         }
         if (encrypt && confirmation.isNotEmpty() && password != confirmation) {
             Text(t("Passwords do not match.", "As palavras-passe não coincidem."), color = MaterialTheme.colorScheme.error)
