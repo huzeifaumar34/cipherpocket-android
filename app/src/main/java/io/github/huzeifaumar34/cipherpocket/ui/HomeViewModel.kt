@@ -75,7 +75,9 @@ class HomeViewModel : ViewModel() {
         operation: Op,
         input: String,
         argument1: String = "",
-        clearSensitiveArgument: Boolean = operation == Op.AES_ENC || operation == Op.AES_DEC
+        clearSensitiveArgument: Boolean = operation in setOf(
+            Op.AES_ENC, Op.AES_DEC, Op.XOR_ENC, Op.XOR_DEC, Op.VIGENERE_ENC, Op.VIGENERE_DEC
+        )
     ) {
         val inputBytes = input.toByteArray(StandardCharsets.UTF_8)
         val argumentBytes = argument1.toByteArray(StandardCharsets.UTF_8)
@@ -85,7 +87,8 @@ class HomeViewModel : ViewModel() {
                 input = input,
                 isWorking = true,
                 error = null,
-                output = ""
+                output = "",
+                argument1 = if (clearSensitiveArgument) "" else it.argument1
             )
         }
         viewModelScope.launch {
@@ -112,7 +115,8 @@ class HomeViewModel : ViewModel() {
                 mutableUiState.update {
                     it.copy(
                         isWorking = false,
-                        error = error.message ?: "The operation could not be completed."
+                        error = error.message ?: "The operation could not be completed.",
+                        argument1 = if (clearSensitiveArgument) "" else it.argument1
                     )
                 }
             } finally {
