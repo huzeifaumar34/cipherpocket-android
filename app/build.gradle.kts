@@ -7,22 +7,22 @@ val cpVersionName = providers.gradleProperty("cpVersionName").orElse("0.1.0-dev"
 val cpVersionCode = providers.gradleProperty("cpVersionCode").orElse("1")
 val cpKeyStorePath = System.getenv("CP_KEYSTORE_PATH")
 
-if (!cpKeyStorePath.isNullOrBlank()) {
-    signingConfigs {
-        create("cpRelease") {
-            storeFile = file(cpKeyStorePath)
-            storePassword = System.getenv("CP_KEYSTORE_PASSWORD")
-            keyAlias = System.getenv("CP_KEY_ALIAS")
-            keyPassword = System.getenv("CP_KEY_PASSWORD")
-            storeType = "PKCS12"
-        }
-    }
-}
-
 android {
     namespace = "io.github.huzeifaumar34.cipherpocket"
     compileSdk = 36
     buildToolsVersion = "36.0.0"
+
+    if (!cpKeyStorePath.isNullOrBlank()) {
+        signingConfigs {
+            create("cpRelease") {
+                storeFile = file(cpKeyStorePath)
+                storePassword = System.getenv("CP_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("CP_KEY_ALIAS")
+                keyPassword = System.getenv("CP_KEY_PASSWORD")
+                storeType = "PKCS12"
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "io.github.huzeifaumar34.cipherpocket"
