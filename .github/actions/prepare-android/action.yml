@@ -27,7 +27,15 @@ runs:
       env:
         NDK_VERSION: ${{ inputs.ndk-version }}
       run: |
+        set +o pipefail
         yes | sdkmanager --licenses >/dev/null
+        license_status=${PIPESTATUS[1]}
+        set -o pipefail
+        if (( license_status != 0 )); then
+          echo "Android SDK license acceptance failed (exit ${license_status})." >&2
+          exit "${license_status}"
+        fi
+
         sdkmanager \
           "platforms;android-36" \
           "build-tools;36.0.0" \
