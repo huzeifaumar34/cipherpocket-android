@@ -9,8 +9,12 @@ val cpKeyStorePath = System.getenv("CP_KEYSTORE_PATH")
 
 android {
     namespace = "io.github.huzeifaumar34.cipherpocket"
-    compileSdk = 36
-    buildToolsVersion = "36.0.0"
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
+    buildToolsVersion = "37.0.0"
 
     if (!cpKeyStorePath.isNullOrBlank()) {
         signingConfigs {

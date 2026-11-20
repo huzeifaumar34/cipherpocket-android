@@ -5,15 +5,26 @@ import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import io.github.huzeifaumar34.cipherpocket.ui.CipherPocketApp
+import io.github.huzeifaumar34.cipherpocket.ui.HomeViewModel
 import io.github.huzeifaumar34.cipherpocket.ui.theme.CipherPocketTheme
 
 class MainActivity : ComponentActivity() {
+    // Same ViewModelStore as the one Compose's viewModel() uses, so this is the same instance.
+    private val homeViewModel: HomeViewModel by viewModels()
+
+    override fun onStop() {
+        super.onStop()
+        // Rotation also stops the activity; only wipe when the user really leaves the app.
+        if (!isChangingConfigurations) homeViewModel.onBackgrounded()
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()

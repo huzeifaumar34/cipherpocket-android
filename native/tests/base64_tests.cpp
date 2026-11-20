@@ -98,6 +98,28 @@ TEST(DetectAndPassword, FindsEncodingAndScoresPassword) {
     EXPECT_NE(text(detected.output).find("Base64 -> Hello"),std::string::npos);
     EXPECT_NE(text(run(Operation::PasswordCheck,"Longer-Secure-2026!").output).find("Strong"),std::string::npos);
 }
+TEST(Utf8, CaseChangeKeepsEmojiAndAccents) {
+    EXPECT_EQ(text(run(Operation::Upper,"a\xC3\xA7\xC3\xA3o \xF0\x9F\x98\x80 teste").output),
+              "A\xC3\x87\xC3\x83O \xF0\x9F\x98\x80 TESTE");
+    EXPECT_EQ(text(run(Operation::Lower,"A\xC3\x87\xC3\x83O \xF0\x9F\x98\x80 TESTE").output),
+              "a\xC3\xA7\xC3\xA3o \xF0\x9F\x98\x80 teste");
+}
+TEST(Utf8, MalformedBytesPassThroughUnchanged) {
+    const std::string broken="ab\xFF\xC3 cd\xF0\x9F";
+    EXPECT_EQ(text(run(Operation::Lower,broken).output),broken);
+    EXPECT_EQ(text(run(Operation::Upper,broken).output),"AB\xFF\xC3 CD\xF0\x9F");
+}
+TEST(Utf8, StatisticsCountCharactersNotBytes) {
+    const auto out=text(run(Operation::Stats,"Ol\xC3\xA1 \xF0\x9F\x98\x80").output);
+    EXPECT_NE(out.find("Bytes: 9"),std::string::npos);
+    EXPECT_NE(out.find("Characters: 5"),std::string::npos);
+    EXPECT_NE(out.find("Words: 2"),std::string::npos);
+}
+TEST(Utf8, FrequencyAndMorseIgnoreEmoji) {
+    const auto freq=text(run(Operation::Freq,"\xC3\x81" "a \xF0\x9F\x98\x80").output);
+    EXPECT_NE(freq.find("A: 2 (100.0%)"),std::string::npos);
+    EXPECT_EQ(text(run(Operation::MorseEnc,"sos \xF0\x9F\x98\x80").output),"... --- ...");
+}
 TEST(Aes256Gcm, ConversorV2CompatibilityVector) {
     const std::string password="Frase-Longa-e-Segura-2026!";
     const std::string cipher="ARc3Kn4rIjbuTO+zEUqTiMvEGmtOBKCpDWd9KeUIq5MOIp1yGOVj36qE68BJHSVLew==";
