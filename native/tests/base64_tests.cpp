@@ -116,7 +116,7 @@ TEST(Utf8, StatisticsCountCharactersNotBytes) {
     EXPECT_NE(out.find("Words: 2"),std::string::npos);
 }
 TEST(Utf8, FrequencyAndMorseIgnoreEmoji) {
-    const auto freq=text(run(Operation::Freq,"\xC3\x81a \xF0\x9F\x98\x80").output);
+    const auto freq=text(run(Operation::Freq,"\xC3\x81" "a \xF0\x9F\x98\x80").output);
     EXPECT_NE(freq.find("A: 2 (100.0%)"),std::string::npos);
     EXPECT_EQ(text(run(Operation::MorseEnc,"sos \xF0\x9F\x98\x80").output),"... --- ...");
 }
