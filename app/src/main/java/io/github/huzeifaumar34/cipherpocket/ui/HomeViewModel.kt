@@ -38,6 +38,7 @@ class HomeViewModel : ViewModel() {
 
     private var operationJob: Job? = null
     private var operationGeneration = 0L
+    private var externalActivityActive = false
 
     fun onInputChanged(value: String) {
         mutableUiState.update { it.copy(input = value, error = null) }
@@ -63,8 +64,14 @@ class HomeViewModel : ViewModel() {
         mutableUiState.update { it.copy(history = emptyList()) }
     }
 
+    /** Keep the file workflow intact while an Android document picker is in front. */
+    fun setExternalActivityActive(active: Boolean) {
+        externalActivityActive = active
+    }
+
     /** Clear sensitive UI data and invalidate any operation still running when the app backgrounds. */
     fun onBackgrounded() {
+        if (externalActivityActive) return
         operationGeneration += 1
         operationJob?.cancel()
         operationJob = null
