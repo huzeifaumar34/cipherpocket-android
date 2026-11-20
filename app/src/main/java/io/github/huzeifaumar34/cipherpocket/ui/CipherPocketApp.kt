@@ -228,6 +228,7 @@ fun CipherPocketApp(
                 )
                 AppPage.VAULT -> VaultPage(
                     state = state,
+                    pt = pt,
                     t = t,
                     onInputChanged = viewModel::onInputChanged,
                     onRun = { encrypt, input, password ->
@@ -474,6 +475,7 @@ private fun DetectPage(
 @Composable
 private fun VaultPage(
     state: HomeUiState,
+    pt: Boolean,
     t: (String, String) -> String,
     onInputChanged: (String) -> Unit,
     onRun: (Boolean, String, String) -> Unit,
