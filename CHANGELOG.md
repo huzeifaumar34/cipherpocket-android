@@ -10,6 +10,7 @@ All notable changes to CipherPocket are documented here.
 - JNI byte-array protocol, offline-first manifest and initial CI workflows.
 
 ### Fixed
+- Lint: `windowLightNavigationBar` moved to `values-v27` (needs API 27, minSdk is 26).
 - Upper/lower-case conversion no longer corrupts emoji and other 4-byte UTF-8 characters; malformed bytes pass through unchanged.
 - Statistics now count characters instead of bytes.
 - Morse encoding no longer leaves a trailing word separator after unsupported characters.
