@@ -17,4 +17,4 @@ All notable changes to CipherPocket are documented here.
 - Android build and CI target compile API 37.1 / Build Tools 37.0.0 required by the resolved AndroidX dependencies, while targetSdk remains 36.
 
 ### Security
-- Input, output, history, Vault and file passwords, and pending file buffers are cleared when the app goes to the background; in-flight work is cancelled or invalidated so stale results do not restore sensitive UI state.
+- Input, output, history, Vault and file passwords, and pending file buffers are cleared when the app goes to the background outside an active system file-picker flow; in-flight work is cancelled or invalidated so stale results do not restore sensitive UI state.
