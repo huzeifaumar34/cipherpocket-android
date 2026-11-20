@@ -59,12 +59,19 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import io.github.huzeifaumar34.cipherpocket.core.Op
 import java.io.ByteArrayOutputStream
 import java.util.Date
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -484,6 +491,17 @@ private fun VaultPage(
     var encrypt by rememberSaveable { mutableStateOf(true) }
     var password by rememberSaveable { mutableStateOf("") }
     var confirmation by rememberSaveable { mutableStateOf("") }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                password = ""
+                confirmation = ""
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(t("Vault", "Cofre"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text(
@@ -592,19 +610,38 @@ private fun FilesPage(
     var password by rememberSaveable { mutableStateOf("") }
     var status by rememberSaveable { mutableStateOf("") }
     var pendingBytes by remember { mutableStateOf<ByteArray?>(null) }
+    var processingJob by remember { mutableStateOf<Job?>(null) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) {
+                processingJob?.cancel()
+                processingJob = null
+                password = ""
+                pendingBytes?.fill(0)
+                pendingBytes = null
+                status = ""
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
 
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
         val data = pendingBytes
         if (uri != null && data != null) {
-            scope.launch {
+            processingJob?.cancel()
+            processingJob = scope.launch {
                 try {
                     withContext(Dispatchers.IO) {
                         context.contentResolver.openOutputStream(uri, "w")?.use { it.write(data) }
                             ?: throw IllegalStateException("Could not open the destination file.")
                     }
                     status = t("File saved successfully.", "Ficheiro guardado com sucesso.")
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (error: Exception) {
                     status = error.message ?: t("Could not save the file.", "Não foi possível guardar o ficheiro.")
                 } finally {
@@ -627,15 +664,19 @@ private fun FilesPage(
         if (uri != null) {
             val encryptNow = encrypt
             val passwordNow = password
-            scope.launch {
+            processingJob?.cancel()
+            processingJob = scope.launch {
                 var input: ByteArray? = null
                 try {
                     status = t("Reading file…", "A ler o ficheiro…")
                     input = withContext(Dispatchers.IO) { readLimitedFile(context, uri) }
                     val output = onProcessFile(encryptNow, input, passwordNow)
+                    currentCoroutineContext().ensureActive()
                     pendingBytes = output
                     status = t("Choose where to save the result.", "Escolhe onde guardar o resultado.")
                     saveLauncher.launch(if (encryptNow) "CipherPocket-encrypted.cp" else "CipherPocket-decrypted.bin")
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
                 } catch (error: Exception) {
                     status = error.message ?: t("File processing failed.", "O processamento do ficheiro falhou.")
                     password = ""
