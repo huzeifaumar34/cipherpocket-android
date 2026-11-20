@@ -250,6 +250,7 @@ fun CipherPocketApp(
                 )
                 AppPage.FILES -> FilesPage(
                     t = t,
+                    onExternalActivityChanged = viewModel::setExternalActivityActive,
                     onProcessFile = { encrypt, data, password -> viewModel.executeRawFile(encrypt, data, password) }
                 )
                 AppPage.HISTORY -> HistoryPage(
@@ -602,6 +603,7 @@ private fun passwordStrengthLabel(password: String, pt: Boolean): String {
 @Composable
 private fun FilesPage(
     t: (String, String) -> String,
+    onExternalActivityChanged: (Boolean) -> Unit,
     onProcessFile: suspend (Boolean, ByteArray, String) -> ByteArray
 ) {
     val context = LocalContext.current
@@ -611,10 +613,11 @@ private fun FilesPage(
     var status by rememberSaveable { mutableStateOf("") }
     var pendingBytes by remember { mutableStateOf<ByteArray?>(null) }
     var processingJob by remember { mutableStateOf<Job?>(null) }
+    var externalActivityActive by remember { mutableStateOf(false) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_STOP) {
+            if (event == Lifecycle.Event.ON_STOP && !externalActivityActive) {
                 processingJob?.cancel()
                 processingJob = null
                 password = ""
@@ -630,6 +633,8 @@ private fun FilesPage(
     val saveLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream")
     ) { uri: Uri? ->
+        externalActivityActive = false
+        onExternalActivityChanged(false)
         val data = pendingBytes
         if (uri != null && data != null) {
             processingJob?.cancel()
@@ -661,6 +666,8 @@ private fun FilesPage(
     val openLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
+        externalActivityActive = false
+        onExternalActivityChanged(false)
         if (uri != null) {
             val encryptNow = encrypt
             val passwordNow = password
@@ -674,6 +681,8 @@ private fun FilesPage(
                     currentCoroutineContext().ensureActive()
                     pendingBytes = output
                     status = t("Choose where to save the result.", "Escolhe onde guardar o resultado.")
+                    externalActivityActive = true
+                    onExternalActivityChanged(true)
                     saveLauncher.launch(if (encryptNow) "CipherPocket-encrypted.cp" else "CipherPocket-decrypted.bin")
                 } catch (cancelled: CancellationException) {
                     throw cancelled
@@ -709,7 +718,11 @@ private fun FilesPage(
             visualTransformation = PasswordVisualTransformation()
         )
         Button(
-            onClick = { openLauncher.launch(arrayOf("*/*")) },
+            onClick = {
+                externalActivityActive = true
+                onExternalActivityChanged(true)
+                openLauncher.launch(arrayOf("*/*"))
+            },
             enabled = password.isNotEmpty()
         ) {
             Text(t("Choose file", "Escolher ficheiro"))
