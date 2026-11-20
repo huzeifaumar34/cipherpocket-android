@@ -5,6 +5,10 @@ import androidx.lifecycle.viewModelScope
 import io.github.huzeifaumar34.cipherpocket.core.Engine
 import io.github.huzeifaumar34.cipherpocket.core.Op
 import java.nio.charset.StandardCharsets
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -32,6 +36,9 @@ class HomeViewModel : ViewModel() {
     private val mutableUiState = MutableStateFlow(HomeUiState())
     val uiState = mutableUiState.asStateFlow()
 
+    private var operationJob: Job? = null
+    private var operationGeneration = 0L
+
     fun onInputChanged(value: String) {
         mutableUiState.update { it.copy(input = value, error = null) }
     }
@@ -56,9 +63,21 @@ class HomeViewModel : ViewModel() {
         mutableUiState.update { it.copy(history = emptyList()) }
     }
 
-    /** Called when the app goes to the background: drop decrypted previews and any typed secret. */
+    /** Clear sensitive UI data and invalidate any operation still running when the app backgrounds. */
     fun onBackgrounded() {
-        mutableUiState.update { it.copy(history = emptyList(), argument1 = "") }
+        operationGeneration += 1
+        operationJob?.cancel()
+        operationJob = null
+        mutableUiState.update {
+            it.copy(
+                input = "",
+                output = "",
+                argument1 = "",
+                history = emptyList(),
+                error = null,
+                isWorking = false
+            )
+        }
     }
 
     fun loadHistory(record: HistoryRecord) {
@@ -78,6 +97,8 @@ class HomeViewModel : ViewModel() {
             Op.AES_ENC, Op.AES_DEC, Op.XOR_ENC, Op.XOR_DEC, Op.VIGENERE_ENC, Op.VIGENERE_DEC
         )
     ) {
+        operationJob?.cancel()
+        val generation = ++operationGeneration
         val inputBytes = input.toByteArray(StandardCharsets.UTF_8)
         val argumentBytes = argument1.toByteArray(StandardCharsets.UTF_8)
         mutableUiState.update {
@@ -90,11 +111,13 @@ class HomeViewModel : ViewModel() {
                 argument1 = if (clearSensitiveArgument) "" else it.argument1
             )
         }
-        viewModelScope.launch {
+        operationJob = viewModelScope.launch {
             var resultBytes: ByteArray? = null
             try {
                 val completed = engine.execute(operation, inputBytes, argumentBytes)
                 resultBytes = completed
+                currentCoroutineContext().ensureActive()
+                if (generation != operationGeneration) return@launch
                 val resultText = String(completed, StandardCharsets.UTF_8)
                 mutableUiState.update { current ->
                     val entry = HistoryRecord(
@@ -110,7 +133,11 @@ class HomeViewModel : ViewModel() {
                         argument1 = if (clearSensitiveArgument) "" else current.argument1
                     )
                 }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (error: Exception) {
+                currentCoroutineContext().ensureActive()
+                if (generation != operationGeneration) return@launch
                 mutableUiState.update {
                     it.copy(
                         isWorking = false,
