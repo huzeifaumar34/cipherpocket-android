@@ -156,6 +156,31 @@ bool binary_decode(std::string_view in, Bytes& out, std::string& message) {
     return true;
 }
 
+struct Decoded {
+    std::uint32_t cp;
+    std::size_t width;
+    bool valid;
+};
+// Decodes one UTF-8 sequence at `at`. Malformed input yields a single raw byte (valid=false).
+Decoded decode_utf8(std::string_view in, std::size_t at) {
+    const auto lead = static_cast<unsigned char>(in[at]);
+    std::size_t width = 0;
+    std::uint32_t cp = 0, minimum = 0;
+    if (lead < 0x80U) return {lead, 1U, true};
+    if ((lead & 0xE0U) == 0xC0U) { width = 2U; cp = lead & 0x1FU; minimum = 0x80U; }
+    else if ((lead & 0xF0U) == 0xE0U) { width = 3U; cp = lead & 0x0FU; minimum = 0x800U; }
+    else if ((lead & 0xF8U) == 0xF0U) { width = 4U; cp = lead & 0x07U; minimum = 0x10000U; }
+    else return {lead, 1U, false};
+    if (at + width > in.size()) return {lead, 1U, false};
+    for (std::size_t k = 1; k < width; ++k) {
+        const auto next = static_cast<unsigned char>(in[at + k]);
+        if ((next & 0xC0U) != 0x80U) return {lead, 1U, false};
+        cp = (cp << 6U) | (next & 0x3FU);
+    }
+    if (cp < minimum || cp > 0x10FFFFU || (cp >= 0xD800U && cp <= 0xDFFFU)) return {lead, 1U, false};
+    return {cp, width, true};
+}
+
 char latin_letter(std::uint32_t cp) {
     if (cp >= 'A' && cp <= 'Z') return static_cast<char>(cp);
     if (cp >= 'a' && cp <= 'z') return static_cast<char>(cp - 32U);
@@ -172,23 +197,13 @@ char latin_letter(std::uint32_t cp) {
 std::string normalize(std::string_view in) {
     std::string out;
     for (std::size_t i = 0; i < in.size();) {
-        const auto c = static_cast<unsigned char>(in[i]);
-        std::uint32_t cp = c; std::size_t width = 1U;
-        if ((c & 0xE0U) == 0xC0U && i + 1U < in.size()) {
-            cp = ((c & 31U) << 6U) | (static_cast<unsigned char>(in[i + 1U]) & 63U); width = 2U;
-        } else if ((c & 0xF0U) == 0xE0U && i + 2U < in.size()) {
-            cp = ((c & 15U) << 12U) | ((static_cast<unsigned char>(in[i + 1U]) & 63U) << 6U) |
-                 (static_cast<unsigned char>(in[i + 2U]) & 63U); width = 3U;
-        } else if ((c & 0xF8U) == 0xF0U && i + 3U < in.size()) {
-            cp = ((c & 7U) << 18U) | ((static_cast<unsigned char>(in[i + 1U]) & 63U) << 12U) |
-                 ((static_cast<unsigned char>(in[i + 2U]) & 63U) << 6U) |
-                 (static_cast<unsigned char>(in[i + 3U]) & 63U); width = 4U;
-        }
-        const char mapped = latin_letter(cp);
+        const auto d = decode_utf8(in, i);
+        i += d.width;
+        if (!d.valid) continue;
+        const char mapped = latin_letter(d.cp);
         if (mapped) out.push_back(mapped);
-        else if (cp == ' ' || cp == '\n' || cp == '\r' || cp == '\t') out.push_back(' ');
-        else if (cp < 128U) out.push_back(static_cast<char>(cp));
-        i += width;
+        else if (d.cp == ' ' || d.cp == '\n' || d.cp == '\r' || d.cp == '\t') out.push_back(' ');
+        else if (d.cp < 128U) out.push_back(static_cast<char>(d.cp));
     }
     return out;
 }
@@ -219,14 +234,17 @@ constexpr std::array<Morse, 44> kMorse{{
  {'?',"..--.."},{'!',"-.-.--"},{'/',"-..-."},{'-',"-....-"},{'(',"-.--."},{')',"-.--.-"}
 }};
 std::string morse_encode(std::string_view in) {
-    const auto src = normalize(in); std::string out; bool spaced = true;
+    const auto src = normalize(in);
+    std::string out;
+    bool pending_word_break = false;
     for (char c : src) {
-        if (c == ' ') { if (!spaced && !out.empty()) out += " /"; spaced = true; continue; }
+        if (c == ' ') { pending_word_break = true; continue; }
         const char u = static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
         const auto it = std::find_if(kMorse.begin(), kMorse.end(), [u](const Morse& p){ return p.first == u; });
         if (it == kMorse.end()) continue;
-        if (!out.empty()) out.push_back(' ');
-        out.append(it->second); spaced = false;
+        if (!out.empty()) out += pending_word_break ? " / " : " ";
+        pending_word_break = false;
+        out.append(it->second);
     }
     return out;
 }
@@ -290,8 +308,13 @@ void append_utf8(std::string& out, std::uint32_t cp) {
     else if (cp <= 0x7FFU) {
         out.push_back(static_cast<char>(0xC0U | (cp >> 6U)));
         out.push_back(static_cast<char>(0x80U | (cp & 63U)));
-    } else {
+    } else if (cp <= 0xFFFFU) {
         out.push_back(static_cast<char>(0xE0U | (cp >> 12U)));
+        out.push_back(static_cast<char>(0x80U | ((cp >> 6U) & 63U)));
+        out.push_back(static_cast<char>(0x80U | (cp & 63U)));
+    } else {
+        out.push_back(static_cast<char>(0xF0U | (cp >> 18U)));
+        out.push_back(static_cast<char>(0x80U | ((cp >> 12U) & 63U)));
         out.push_back(static_cast<char>(0x80U | ((cp >> 6U) & 63U)));
         out.push_back(static_cast<char>(0x80U | (cp & 63U)));
     }
@@ -299,17 +322,9 @@ void append_utf8(std::string& out, std::uint32_t cp) {
 std::string case_change(std::string_view in, bool upper) {
     std::string out;
     for (std::size_t i = 0; i < in.size();) {
-        const auto first = static_cast<unsigned char>(in[i]);
-        std::uint32_t cp = first;
-        std::size_t width = 1U;
-        if ((first & 0xE0U) == 0xC0U && i + 1U < in.size()) {
-            cp = ((first & 31U) << 6U) | (static_cast<unsigned char>(in[i + 1U]) & 63U);
-            width = 2U;
-        } else if ((first & 0xF0U) == 0xE0U && i + 2U < in.size()) {
-            cp = ((first & 15U) << 12U) | ((static_cast<unsigned char>(in[i + 1U]) & 63U) << 6U) |
-                 (static_cast<unsigned char>(in[i + 2U]) & 63U);
-            width = 3U;
-        }
+        const auto d = decode_utf8(in, i);
+        if (!d.valid) { out.push_back(in[i]); i += d.width; continue; }  // keep malformed bytes untouched
+        std::uint32_t cp = d.cp;
         if (upper && cp >= 'a' && cp <= 'z') cp -= 32U;
         else if (!upper && cp >= 'A' && cp <= 'Z') cp += 32U;
         else if (upper && ((cp >= 0x00E0U && cp <= 0x00F6U) || (cp >= 0x00F8U && cp <= 0x00FEU))) cp -= 32U;
@@ -317,7 +332,7 @@ std::string case_change(std::string_view in, bool upper) {
         else if (upper && cp == 0x00FFU) cp = 0x0178U;
         else if (!upper && cp == 0x0178U) cp = 0x00FFU;
         append_utf8(out, cp);
-        i += width;
+        i += d.width;
     }
     return out;
 }
@@ -333,14 +348,19 @@ std::string frequency(std::string_view in) {
     return out.str();
 }
 std::string statistics(std::string_view in) {
-    std::size_t chars = 0, words = 0, lines = in.empty()?0U:1U; bool word = false;
-    for (unsigned char c : in) {
-        ++chars; if (c == '\n') ++lines;
-        const bool space = std::isspace(c) != 0;
-        if (!space && !word) ++words; word = !space;
+    std::size_t chars = 0, words = 0, lines = in.empty() ? 0U : 1U;
+    bool word = false;
+    for (std::size_t i = 0; i < in.size();) {
+        const auto d = decode_utf8(in, i);
+        ++chars;  // one character per valid sequence, one per malformed byte
+        if (in[i] == '\n') ++lines;
+        const bool space = d.valid && d.cp < 128U && std::isspace(static_cast<unsigned char>(d.cp)) != 0;
+        if (!space && !word) ++words;
+        word = !space;
+        i += d.width;
     }
     std::ostringstream out;
-    out<<"Bytes: "<<in.size()<<"\nCharacters: "<<chars<<"\nWords: "<<words<<"\nLines: "<<lines;
+    out << "Bytes: " << in.size() << "\nCharacters: " << chars << "\nWords: " << words << "\nLines: " << lines;
     return out.str();
 }
 std::string password_check(std::string_view password) {

@@ -32,12 +32,6 @@ class HomeViewModel : ViewModel() {
     private val mutableUiState = MutableStateFlow(HomeUiState())
     val uiState = mutableUiState.asStateFlow()
 
-    init {
-        check(engineApiVersion() == 1) { "CipherPocket native API version mismatch." }
-    }
-
-    private fun engineApiVersion(): Int = 1
-
     fun onInputChanged(value: String) {
         mutableUiState.update { it.copy(input = value, error = null) }
     }
@@ -60,6 +54,11 @@ class HomeViewModel : ViewModel() {
 
     fun clearHistory() {
         mutableUiState.update { it.copy(history = emptyList()) }
+    }
+
+    /** Called when the app goes to the background: drop decrypted previews and any typed secret. */
+    fun onBackgrounded() {
+        mutableUiState.update { it.copy(history = emptyList(), argument1 = "") }
     }
 
     fun loadHistory(record: HistoryRecord) {
