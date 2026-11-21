@@ -97,7 +97,7 @@ jobs:
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/36.0.0"
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/37.0.0"
 
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
           ACTUAL_SHA="$(grep 'Signer #1 certificate SHA-256 digest:' /tmp/apksigner.txt | awk '{print tolower($NF)}')"
@@ -105,7 +105,10 @@ jobs:
 
           "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
           "$BUILD_TOOLS/aapt" dump permissions "$APK" > /tmp/cipherpocket-permissions.txt
-          ! grep -q "android.permission.INTERNET" /tmp/cipherpocket-permissions.txt
+          if grep -q "android.permission.INTERNET" /tmp/cipherpocket-permissions.txt; then
+            echo "The APK declares INTERNET; CipherPocket must remain fully offline." >&2
+            exit 1
+          fi
 
           cp "$APK" "CipherPocket-$CP_VERSION_NAME.apk"
           sha256sum "CipherPocket-$CP_VERSION_NAME.apk" > "CipherPocket-$CP_VERSION_NAME.apk.sha256"

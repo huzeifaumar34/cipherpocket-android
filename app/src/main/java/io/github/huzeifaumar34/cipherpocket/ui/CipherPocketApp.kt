@@ -56,7 +56,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -490,8 +492,8 @@ private fun VaultPage(
     onCopy: () -> Unit
 ) {
     var encrypt by rememberSaveable { mutableStateOf(true) }
-    var password by rememberSaveable { mutableStateOf("") }
-    var confirmation by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -528,7 +530,8 @@ private fun VaultPage(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(t("Password", "Palavra-passe")) },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
         )
         if (encrypt) {
             OutlinedTextField(
@@ -537,7 +540,8 @@ private fun VaultPage(
                 modifier = Modifier.fillMaxWidth(),
                 label = { Text(t("Confirm password", "Confirmar palavra-passe")) },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation()
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
             )
             Text(
                 text = t("Password strength: ", "Força da palavra-passe: ") + passwordStrengthLabel(password, pt),
@@ -609,7 +613,8 @@ private fun FilesPage(
     val context = LocalContext.current
     val scope = androidx.compose.runtime.rememberCoroutineScope()
     var encrypt by rememberSaveable { mutableStateOf(true) }
-    var password by rememberSaveable { mutableStateOf("") }
+    var password by remember { mutableStateOf("") }
+    var confirmation by remember { mutableStateOf("") }
     var status by rememberSaveable { mutableStateOf("") }
     var pendingBytes by remember { mutableStateOf<ByteArray?>(null) }
     var processingJob by remember { mutableStateOf<Job?>(null) }
@@ -621,6 +626,7 @@ private fun FilesPage(
                 processingJob?.cancel()
                 processingJob = null
                 password = ""
+                confirmation = ""
                 pendingBytes?.fill(0)
                 pendingBytes = null
                 status = ""
@@ -707,7 +713,7 @@ private fun FilesPage(
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             FilterChip(selected = encrypt, onClick = { encrypt = true }, label = { Text(t("Encrypt", "Cifrar")) })
-            FilterChip(selected = !encrypt, onClick = { encrypt = false }, label = { Text(t("Decrypt", "Decifrar")) })
+            FilterChip(selected = !encrypt, onClick = { encrypt = false; confirmation = "" }, label = { Text(t("Decrypt", "Decifrar")) })
         }
         OutlinedTextField(
             value = password,
@@ -715,15 +721,30 @@ private fun FilesPage(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(t("Password", "Palavra-passe")) },
             singleLine = true,
-            visualTransformation = PasswordVisualTransformation()
+            visualTransformation = PasswordVisualTransformation(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
         )
+        if (encrypt) {
+            OutlinedTextField(
+                value = confirmation,
+                onValueChange = { confirmation = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(t("Confirm password", "Confirmar palavra-passe")) },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
+            )
+            if (confirmation.isNotEmpty() && password != confirmation) {
+                Text(t("Passwords do not match.", "As palavras-passe não coincidem."), color = MaterialTheme.colorScheme.error)
+            }
+        }
         Button(
             onClick = {
                 externalActivityActive = true
                 onExternalActivityChanged(true)
                 openLauncher.launch(arrayOf("*/*"))
             },
-            enabled = password.isNotEmpty()
+            enabled = password.isNotEmpty() && (!encrypt || password == confirmation)
         ) {
             Text(t("Choose file", "Escolher ficheiro"))
         }

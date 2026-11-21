@@ -30,7 +30,11 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val preferences = getSharedPreferences("cipherpocket-settings", MODE_PRIVATE)
-        val sharedText = if (intent?.action == Intent.ACTION_SEND && intent.type == "text/plain") {
+        // Only on a fresh launch: after rotation the same intent is redelivered and would
+        // overwrite the user's input and jump back to the Detect page.
+        val sharedText = if (savedInstanceState == null &&
+            intent?.action == Intent.ACTION_SEND && intent.type == "text/plain"
+        ) {
             intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
         } else null
         setContent {

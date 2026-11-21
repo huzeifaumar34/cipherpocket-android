@@ -72,7 +72,13 @@ Bytes b64_encode(const Bytes& input) {
     }
     return out;
 }
-bool b64_decode(const Bytes& in, Bytes& out, std::string& message) {
+bool b64_decode(const Bytes& raw, Bytes& out, std::string& message) {
+    // Ignore ASCII whitespace (pasted text often has a trailing newline or MIME line wrapping).
+    Bytes in;
+    in.reserve(raw.size());
+    for (auto c : raw) {
+        if (!std::isspace(static_cast<unsigned char>(c))) in.push_back(c);
+    }
     if (in.size() % 4U != 0U) { message = "Invalid Base64 input length."; return false; }
     out.clear();
     out.reserve(in.size() / 4U * 3U);

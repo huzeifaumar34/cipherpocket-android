@@ -32,6 +32,15 @@ TEST(Base64, RejectsMalformedInput) {
     EXPECT_FALSE(run(Operation::B64Dec,"AB==").ok);
     EXPECT_TRUE(run(Operation::B64Enc,"").ok);
 }
+TEST(Base64, IgnoresSurroundingAndWrappingWhitespace) {
+    EXPECT_EQ(text(run(Operation::B64Dec,"SGVsbG8=\n").output),"Hello");
+    EXPECT_EQ(text(run(Operation::B64Dec,"  SGVs\r\nbG8=  ").output),"Hello");
+    const std::string cipher="ARc3Kn4rIjbuTO+zEUqTiMvEGmtOBKCpDWd9KeUIq5MOIp1yGOVj36qE68BJHSVLew==";
+    auto result=run(Operation::AesDec,cipher+"\n","Frase-Longa-e-Segura-2026!");
+    ASSERT_TRUE(result.ok);
+    EXPECT_EQ(text(result.output),"ZIKA");
+    EXPECT_NE(text(run(Operation::AutoDetect,"SGVsbG8=\n").output).find("Base64 -> Hello"),std::string::npos);
+}
 TEST(BinaryAndHex, RoundTripText) {
     const std::string original="AΩ";
     auto binary=run(Operation::BinEnc,original);
