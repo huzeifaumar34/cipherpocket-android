@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Padlock, drawn inside the 66dp adaptive-icon safe zone. Also used as the monochrome layer. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="5"
+        android:strokeLineCap="round"
+        android:pathData="M40,50 V42 A14,14 0 0 1 68,42 V50" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M40,50 H68 A4,4 0 0 1 72,54 V76 A4,4 0 0 1 68,80 H40 A4,4 0 0 1 36,76 V54 A4,4 0 0 1 40,50 Z M50,62 A4,4 0 1 0 58,62 A4,4 0 1 0 50,62 Z M52,66 H56 L57,73 H51 Z" />
+</vector>
